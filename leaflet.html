@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบค้นหาที่อยู่จากพิกัด (Leaflet Reverse Geocoding)</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Google Fonts (Prompt) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Prompt', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 {
+            font-size: 1.6rem;
+            font-weight: 600;
+        }
+
+        header p {
+            font-size: 0.9rem;
+            opacity: 0.85;
+            margin-top: 5px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 15px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex: 1;
+        }
+
+        /* Responsive Layout Grid */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 850px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Sidebar Control Panel */
+        .panel {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e3c72;
+            border-bottom: 2px solid #eef2f5;
+            padding-bottom: 8px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-group input {
+            padding: 10px 12px;
+            border: 1.5px solid #dcdfe6;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #2a5298;
+            box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.1);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 11px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.1s ease;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background-color: #2a5298;
+            color: white;
+            flex: 1;
+        }
+
+        .btn-primary:hover {
+            background-color: #1e3c72;
+        }
+
+        .btn-secondary {
+            background-color: #27ae60;
+            color: white;
+            flex: 1;
+        }
+
+        .btn-secondary:hover {
+            background-color: #219150;
+        }
+
+        /* Result Display Box */
+        .result-box {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px dashed #cbd5e1;
+            font-size: 0.9rem;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            color: #64748b;
+            font-weight: 400;
+        }
+
+        .result-value {
+            color: #0f172a;
+            font-weight: 600;
+            text-align: right;
+        }
+
+        .full-address {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.85rem;
+            color: #475569;
+            line-height: 1.4;
+        }
+
+        /* Status & Loading */
+        .status-msg {
+            font-size: 0.85rem;
+            color: #e67e22;
+            display: none;
+            text-align: center;
+            padding: 5px;
+            border-radius: 4px;
+            background: #fef5e7;
+        }
+
+        /* Map Styling */
+        #map {
+            height: 550px;
+            width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            z-index: 1;
+        }
+
+        .hint {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>ระบบค้นหาที่อยู่จากพิกัด Lat / Long</h1>
+        <p>แปลงพิกัดละติจูด ลองจิจูด เป็น ตำบล อำเภอ จังหวัด ด้วย Leaflet & OpenStreetMap</p>
+    </header>
+
+    <div class="container">
+        <div class="main-layout">
+            <!-- Left Side Control Panel -->
+            <div class="panel">
+                <div class="panel-title">ระบุพิกัด / ค้นหา</div>
+
+                <div class="form-group">
+                    <label for="latInput">Latitude (ละติจูด):</label>
+                    <input type="number" step="any" id="latInput" placeholder="เช่น 13.7563" value="13.7563">
+                </div>
+
+                <div class="form-group">
+                    <label for="lngInput">Longitude (ลองจิจูด):</label>
+                    <input type="number" step="any" id="lngInput" placeholder="เช่น 100.5018" value="100.5018">
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn-primary" onclick="searchByInput()">ค้นหาพิกัด</button>
+                    <button class="btn-secondary" onclick="getCurrentLocation()">ตำแหน่งฉัน</button>
+                </div>
+
+                <div id="status" class="status-msg">กำลังดึงข้อมูลที่อยู่...</div>
+
+                <span class="hint">* สามารถคลิกเลือกจุดบนแผนที่ได้โดยตรง</span>
+
+                <div class="panel-title" style="margin-top: 10px;">ผลลัพธ์ที่อยู่</div>
+
+                <div class="result-box">
+                    <div class="result-item">
+                        <span class="result-label">ตำบล / แขวง:</span>
+                        <span class="result-value" id="resSubdistrict">-</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">อำเภอ / เขต:</span>
+                        <span class="result-value" id="resDistrict">-</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">จังหวัด:</span>
+                        <span class="result-value" id="resProvince">-</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">รหัสไปรษณีย์:</span>
+                        <span class="result-value" id="resPostcode">-</span>
+                    </div>
+
+                    <div class="full-address">
+                        <strong>ที่อยู่เต็ม:</strong><br>
+                        <span id="resFullAddress">กรุณากรอกพิกัดหรือคลิกบนแผนที่เพื่อดูข้อมูล</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side Map -->
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // 1. สร้างแผนที่และตั้งค่าเริ่มต้นที่กรุงเทพฯ
+        const defaultLat = 13.7563;
+        const defaultLng = 100.5018;
+        
+        const map = L.map('map').setView([defaultLat, defaultLng], 13);
+
+        // 2. ใส่ Tile Layer จาก OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // 3. สร้าง Marker ตัวชี้ตำแหน่ง
+        let marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
+
+        // เมื่อลาก Marker ให้ทำการค้นหาตำแหน่งใหม่
+        marker.on('dragend', function(event) {
+            const position = marker.getLatLng();
+            document.getElementById('latInput').value = position.lat.toFixed(6);
+            document.getElementById('lngInput').value = position.lng.toFixed(6);
+            reverseGeocode(position.lat, position.lng);
+        });
+
+        // 4. เมื่อคลิกที่ใดก็ได้บนแผนที่
+        map.on('click', function(e) {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+            
+            document.getElementById('latInput').value = lat.toFixed(6);
+            document.getElementById('lngInput').value = lng.toFixed(6);
+            
+            updateMarker(lat, lng);
+            reverseGeocode(lat, lng);
+        });
+
+        // ฟังก์ชันอัปเดตตำแหน่ง Marker บนแผนที่
+        function updateMarker(lat, lng) {
+            marker.setLatLng([lat, lng]);
+            map.panTo([lat, lng]);
+        }
+
+        // ฟังก์ชันค้นหาเมื่อกดปุ่ม "ค้นหาพิกัด"
+        function searchByInput() {
+            const lat = parseFloat(document.getElementById('latInput').value);
+            const lng = parseFloat(document.getElementById('lngInput').value);
+
+            if (isNaN(lat) || isNaN(lng)) {
+                alert('กรุณากรอกค่า Lat และ Long ให้ถูกต้อง');
+                return;
+            }
+
+            updateMarker(lat, lng);
+            reverseGeocode(lat, lng);
+        }
+
+        // ฟังก์ชันดึงตำแหน่งปัจจุบันของผู้ใช้
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                showStatus("กำลังระบุตำแหน่งของคุณ...");
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        document.getElementById('latInput').value = lat.toFixed(6);
+                        document.getElementById('lngInput').value = lng.toFixed(6);
+                        
+                        updateMarker(lat, lng);
+                        map.setZoom(15);
+                        reverseGeocode(lat, lng);
+                    },
+                    (error) => {
+                        hideStatus();
+                        alert("ไม่สามารถเข้าถึงตำแหน่งของคุณได้: " + error.message);
+                    }
+                );
+            } else {
+                alert("เบราว์เซอร์ของคุณไม่รองรับการดึงตำแหน่งปัจจุบัน");
+            }
+        }
+
+        // 5. ฟังก์ชันหลัก Reverse Geocoding (ส่ง Lat/Long ไปขอที่อยู่จาก Nominatim API)
+        function reverseGeocode(lat, lng) {
+            showStatus("กำลังค้นหาข้อมูลที่อยู่...");
+
+            // ใช้ Nominatim API ของ OpenStreetMap (ส่งรับภาษาไทย accept-language=th)
+            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=th`;
+
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.json();
+                })
+                .then(data => {
+                    hideStatus();
+                    if (data && data.address) {
+                        const addr = data.address;
+
+                        // แยกระดับตำบล อำเภอ จังหวัด (OSM จะใช้คีย์ได้หลายแบบขึ้นอยู่กับพื้นที่)
+                        const subdistrict = addr.subdistrict || addr.suburb || addr.village || addr.neighbourhood || addr.town || "-";
+                        const district = addr.district || addr.city_district || addr.county || addr.city || "-";
+                        const province = addr.state || addr.province || "-";
+                        const postcode = addr.postcode || "-";
+
+                        // แสดงผลบนหน้าเว็บ
+                        document.getElementById('resSubdistrict').textContent = subdistrict;
+                        document.getElementById('resDistrict').textContent = district;
+                        document.getElementById('resProvince').textContent = province;
+                        document.getElementById('resPostcode').textContent = postcode;
+                        document.getElementById('resFullAddress').textContent = data.display_name || "ไม่พบชื่อที่อยู่สมบูรณ์";
+
+                        // ป๊อปอัปบน Marker
+                        marker.bindPopup(`
+                            <div style="font-size:13px; font-family:'Prompt', sans-serif;">
+                                <b>ต.</b> ${subdistrict}<br>
+                                <b>อ.</b> ${district}<br>
+                                <b>จ.</b> ${province}
+                            </div>
+                        `).openPopup();
+                    } else {
+                        resetResults("ไม่พบข้อมูลที่อยู่ในตำแหน่งนี้");
+                    }
+                })
+                .catch(error => {
+                    hideStatus();
+                    console.error('Error fetching address:', error);
+                    resetResults("เกิดข้อผิดพลาดในการดึงข้อมูลที่อยู่");
+                });
+        }
+
+        function showStatus(msg) {
+            const el = document.getElementById('status');
+            el.textContent = msg;
+            el.style.display = 'block';
+        }
+
+        function hideStatus() {
+            document.getElementById('status').style.display = 'none';
+        }
+
+        function resetResults(msg) {
+            document.getElementById('resSubdistrict').textContent = "-";
+            document.getElementById('resDistrict').textContent = "-";
+            document.getElementById('resProvince').textContent = "-";
+            document.getElementById('resPostcode').textContent = "-";
+            document.getElementById('resFullAddress').textContent = msg;
+        }
+
+        // ดึงข้อมูลครั้งแรกเมื่อโหลดหน้าเว็บ
+        reverseGeocode(defaultLat, defaultLng);
+    </script>
+</body>
+</html>
