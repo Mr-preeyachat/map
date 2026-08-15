@@ -376,10 +376,8 @@
         // 5. ฟังก์ชันหลัก Reverse Geocoding (ส่ง Lat/Long ไปขอที่อยู่จาก Nominatim API)
         function reverseGeocode(lat, lng) {
             showStatus("กำลังค้นหาข้อมูลที่อยู่...");
-
-            // ใช้ Nominatim API ของ OpenStreetMap (ส่งรับภาษาไทย accept-language=th)
             const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=th`;
-
+        
             fetch(url)
                 .then(response => {
                     if (!response.ok) throw new Error('Network response was not ok');
@@ -389,21 +387,37 @@
                     hideStatus();
                     if (data && data.address) {
                         const addr = data.address;
-
-                        // แยกระดับตำบล อำเภอ จังหวัด (OSM จะใช้คีย์ได้หลายแบบขึ้นอยู่กับพื้นที่)
-                        const subdistrict = addr.subdistrict || addr.suburb || addr.village || addr.neighbourhood || addr.town || "-";
-                        const district = addr.district || addr.city_district || addr.county || addr.city || "-";
-                        const province = addr.state || addr.province || "-";
+        
+                        // 1. ดึงค่าจากคีย์ต่างๆ ของ OSM
+                        let rawSubdistrict = addr.suburb || addr.subdistrict || addr.neighbourhood || addr.village || addr.town || addr.hamlet || "-";
+                        let rawDistrict = addr.district || addr.city_district || addr.county || addr.city || "-";
+                        let rawProvince = addr.province || addr.state || (addr.city === "กรุงเทพมหานคร" ? "กรุงเทพมหานคร" : addr.state_district) || "-";
                         const postcode = addr.postcode || "-";
-
-                        // แสดงผลบนหน้าเว็บ
+        
+                        // กรณีตำบลเป็นชื่อเดียวกับอำเภอ หรือหาตำบลไม่เจอแต่มีในที่อยู่
+                        if (rawSubdistrict === rawDistrict || rawSubdistrict === "-") {
+                            if (addr.village) rawSubdistrict = addr.village;
+                            else if (addr.town) rawSubdistrict = addr.town;
+                        }
+        
+                        // 2. ฟังก์ชันตัดคำนำหน้าซ้ำซ้อนออก (ตำบล, แขวง, อำเภอ, เขต, จังหวัด)
+                        const cleanText = (text) => {
+                            if (!text || text === "-") return "-";
+                            return text.replace(/^(ตำบล|แขวง|อำเภอ|เขต|จังหวัด)\s*/g, '').trim();
+                        };
+        
+                        const subdistrict = cleanText(rawSubdistrict);
+                        const district = cleanText(rawDistrict);
+                        const province = cleanText(rawProvince);
+        
+                        // 3. แสดงผลลง Element
                         document.getElementById('resSubdistrict').textContent = subdistrict;
                         document.getElementById('resDistrict').textContent = district;
                         document.getElementById('resProvince').textContent = province;
                         document.getElementById('resPostcode').textContent = postcode;
                         document.getElementById('resFullAddress').textContent = data.display_name || "ไม่พบชื่อที่อยู่สมบูรณ์";
-
-                        // ป๊อปอัปบน Marker
+        
+                        // 4. ป๊อปอัปบน Marker (แสดงเฉพาะค่า чисто ไม่มีคำนำหน้าซ้ำ)
                         marker.bindPopup(`
                             <div style="font-size:13px; font-family:'Prompt', sans-serif;">
                                 <b>ต.</b> ${subdistrict}<br>
