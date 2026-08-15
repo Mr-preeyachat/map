@@ -388,27 +388,41 @@
                     if (data && data.address) {
                         const addr = data.address;
         
-                        // 1. ดึงค่าจากคีย์ต่างๆ ของ OSM
-                        let rawSubdistrict = addr.suburb || addr.subdistrict || addr.neighbourhood || addr.village || addr.town || addr.hamlet || "-";
-                        let rawDistrict = addr.district || addr.city_district || addr.county || addr.city || "-";
-                        let rawProvince = addr.province || addr.state || (addr.city === "กรุงเทพมหานคร" ? "กรุงเทพมหานคร" : addr.state_district) || "-";
-                        const postcode = addr.postcode || "-";
-        
-                        // กรณีตำบลเป็นชื่อเดียวกับอำเภอ หรือหาตำบลไม่เจอแต่มีในที่อยู่
-                        if (rawSubdistrict === rawDistrict || rawSubdistrict === "-") {
-                            if (addr.village) rawSubdistrict = addr.village;
-                            else if (addr.town) rawSubdistrict = addr.town;
-                        }
-        
-                        // 2. ฟังก์ชันตัดคำนำหน้าซ้ำซ้อนออก (ตำบล, แขวง, อำเภอ, เขต, จังหวัด)
+                        // 1. ฟังก์ชันตัดคำนำหน้าซ้ำซ้อน
                         const cleanText = (text) => {
-                            if (!text || text === "-") return "-";
+                            if (!text) return "";
                             return text.replace(/^(ตำบล|แขวง|อำเภอ|เขต|จังหวัด)\s*/g, '').trim();
                         };
         
-                        const subdistrict = cleanText(rawSubdistrict);
-                        const district = cleanText(rawDistrict);
-                        const province = cleanText(rawProvince);
+                        // 2. แยกกรณี กรุงเทพมหานคร
+                        const isBKK = addr.state === "กรุงเทพมหานคร" || addr.city === "กรุงเทพมหานคร" || addr.province === "กรุงเทพมหานคร";
+        
+                        let subdistrict = "";
+                        let district = "";
+                        let province = "";
+        
+                        if (isBKK) {
+                            // ลำดับคีย์เฉพาะพื้นที่ กทม.
+                            subdistrict = cleanText(addr.suburb || addr.quarter || addr.neighbourhood || addr.subdistrict);
+                            district = cleanText(addr.district || addr.city_district || addr.city || addr.county);
+                            // ป้องกันเขตไปซ้ำกับจังหวัด
+                            if (district === "กรุงเทพมหานคร") {
+                                district = cleanText(addr.district || addr.city_district || addr.county || addr.suburb);
+                            }
+                            province = "กรุงเทพมหานคร";
+                        } else {
+                            // ลำดับคีย์สำหรับ ต่างจังหวัด
+                            subdistrict = cleanText(addr.subdistrict || addr.suburb || addr.village || addr.town || addr.hamlet);
+                            district = cleanText(addr.district || addr.city_district || addr.county || addr.city || addr.town);
+                            province = cleanText(addr.province || addr.state || addr.state_district);
+                        }
+        
+                        const postcode = addr.postcode || "-";
+        
+                        // กรณีหาค่าไม่ได้ให้แสดง "-"
+                        subdistrict = subdistrict || "-";
+                        district = district || "-";
+                        province = province || "-";
         
                         // 3. แสดงผลลง Element
                         document.getElementById('resSubdistrict').textContent = subdistrict;
@@ -417,7 +431,7 @@
                         document.getElementById('resPostcode').textContent = postcode;
                         document.getElementById('resFullAddress').textContent = data.display_name || "ไม่พบชื่อที่อยู่สมบูรณ์";
         
-                        // 4. ป๊อปอัปบน Marker (แสดงเฉพาะค่า чисто ไม่มีคำนำหน้าซ้ำ)
+                        // 4. ป๊อปอัปบน Marker
                         marker.bindPopup(`
                             <div style="font-size:13px; font-family:'Prompt', sans-serif;">
                                 <b>ต.</b> ${subdistrict}<br>
