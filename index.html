@@ -3,21 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LeafletJS API Map</title>
+    <title>LeafletJS Map & Satellite</title>
+    <!-- กลับมาใช้ Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; font-family: sans-serif; background: #f5f7fa; }
-        .container { display: flex; height: 100vh; }
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f7fa; }
+        .container { display: flex; height: 100vh; position: relative; }
         .panel { width: 360px; padding: 20px; background: white; box-shadow: 2px 0 10px rgba(0,0,0,.15); z-index: 1000; overflow-y: auto; }
         h2 { margin-top: 0; color: #1769aa; }
         label { display: block; margin: 10px 0 4px; font-weight: bold; }
         input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
         button { width: 100%; padding: 10px; margin-top: 15px; border: 0; border-radius: 4px; background: #1976d2; color: white; font-weight: bold; cursor: pointer; }
         button:hover { background: #125ca1; }
-        #map { flex: 1; }
+        #map { flex: 1; position: relative; z-index: 1; }
         .result { margin-top: 15px; padding: 10px; background: #f1f8ff; border-radius: 4px; border: 1px solid #c9e2ff; white-space: pre-wrap; font-size: 13px; max-height: 250px; overflow-y: auto; }
         .status { margin-top: 10px; font-weight: bold; font-size: 14px; }
+
+        /* Custom Dropdown สไตล์สวยงาม (z-index สูงกว่าแผนที่ Leaflet) */
+        .style-selector-container {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            z-index: 1000;
+        }
+
+        .custom-select-wrapper {
+            position: relative;
+            user-select: none;
+            min-width: 220px;
+        }
+
+        .custom-select-trigger {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(8px);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .custom-select-trigger:hover {
+            background: #ffffff;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+            transform: translateY(-1px);
+        }
+
+        .custom-select-trigger .arrow {
+            width: 8px;
+            height: 8px;
+            border-right: 2px solid #555;
+            border-bottom: 2px solid #555;
+            transform: rotate(45deg);
+            transition: transform 0.25s ease;
+            margin-left: 12px;
+        }
+
+        .custom-select-wrapper.open .custom-select-trigger .arrow {
+            transform: rotate(-135deg);
+        }
+
+        .custom-options {
+            position: absolute;
+            display: block;
+            top: calc(100% + 8px);
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translateY(-10px);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .custom-select-wrapper.open .custom-options {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: all;
+            transform: translateY(0);
+        }
+
+        .custom-option {
+            position: relative;
+            display: flex;
+            align-items: center;
+            padding: 10px 16px;
+            font-size: 13.5px;
+            color: #333;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .custom-option:hover {
+            background: #f0f4f9;
+            color: #1976d2;
+        }
+
+        .custom-option.selected {
+            background: #e3f2fd;
+            color: #1976d2;
+            font-weight: 600;
+        }
+
+        .option-icon {
+            margin-right: 8px;
+            font-size: 15px;
+        }
     </style>
 </head>
 <body>
@@ -36,19 +142,84 @@
         <div class="status" id="status"></div>
         <div class="result" id="result">คลิกบนแผนที่หรือกรอกพิกัดเพื่อค้นหา</div>
     </div>
-    <div id="map"></div>
+    
+    <div id="map">
+        <!-- Custom UI Dropdown มุมขวาบน -->
+        <div class="style-selector-container">
+            <div class="custom-select-wrapper" id="styleDropdown">
+                <div class="custom-select-trigger">
+                    <span id="selectedOptionText"><span class="option-icon">🗺️</span> OpenStreetMap</span>
+                    <div class="arrow"></div>
+                </div>
+                <div class="custom-options">
+                    <div class="custom-option selected" data-value="osm">
+                        <span class="option-icon">🗺️</span> OpenStreetMap
+                    </div>
+                    <div class="custom-option" data-value="satellite">
+                        <span class="option-icon">🛰️</span> ดาวเทียม (Esri)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
+<!-- กลับมาใช้ Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // ใช้ Nominatim API ของ OpenStreetMap (Reverse Geocoding)
     const API_URL = "https://nominatim.openstreetmap.org/reverse";
+    
+    // สร้าง Map ด้วย Leaflet
     const map = L.map("map").setView([13.7563, 100.5018], 10);
     let marker = null;
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19, attribution: "&copy; OpenStreetMap"
-    }).addTo(map);
+    // นิยาม Layer สำหรับแผนที่ประเภทต่างๆ
+    const baseLayers = {
+        'osm': L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19, attribution: "&copy; OpenStreetMap"
+        }),
+        'satellite': L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+            maxZoom: 19, attribution: "Tiles &copy; Esri"
+        })
+    };
+
+    // ใส่ OpenStreetMap เป็น Layer เริ่มต้น
+    let currentLayer = baseLayers['osm'].addTo(map);
+
+    // Logic สลับ layer แผนที่
+    function switchLayer(styleKey) {
+        if (currentLayer) {
+            map.removeLayer(currentLayer);
+        }
+        currentLayer = baseLayers[styleKey].addTo(map);
+    }
+
+    // Logic ควบคุม Custom Dropdown
+    const dropdown = document.getElementById('styleDropdown');
+    const trigger = dropdown.querySelector('.custom-select-trigger');
+    const options = dropdown.querySelectorAll('.custom-option');
+    const selectedText = document.getElementById('selectedOptionText');
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('open');
+    });
+
+    options.forEach(option => {
+        option.addEventListener('click', function() {
+            options.forEach(opt => opt.classList.remove('selected'));
+            this.classList.add('selected');
+            selectedText.innerHTML = this.innerHTML;
+            dropdown.classList.remove('open');
+            
+            const styleKey = this.getAttribute('data-value');
+            switchLayer(styleKey);
+        });
+    });
+
+    document.addEventListener('click', () => {
+        dropdown.classList.remove('open');
+    });
 
     // คลิกบนแผนที่
     map.on("click", (e) => {
@@ -62,8 +233,9 @@
     }
 
     function setMarker(lat, lon, text = "ตำแหน่งที่เลือก") {
-        if (marker) marker.setLatLng([lat, lon]);
-        else {
+        if (marker) {
+            marker.setLatLng([lat, lon]);
+        } else {
             marker = L.marker([lat, lon], { draggable: true }).addTo(map);
             marker.on("dragend", (e) => {
                 const pos = e.target.getLatLng();
@@ -91,14 +263,12 @@
         result.textContent = "กำลังโหลด...";
 
         try {
-            // เรียกใช้ API (ระบุ format=json)
             const res = await fetch(`${API_URL}?lat=${lat}&lon=${lon}&format=json`);
             if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
             
             const data = await res.json();
             status.innerHTML = "✅ ดึงข้อมูลสำเร็จ";
             
-            // แสดงผลชื่อสถานที่และที่อยู่แบบอ่านง่าย + JSON ฉบับเต็ม
             const placeName = data.display_name || "ไม่พบข้อมูลชื่อสถานที่";
             result.textContent = `📍 ที่อยู่:\n${placeName}\n\n--- ข้อมูล JSON ---\n` + JSON.stringify(data, null, 2);
             marker.bindPopup(`<b>${data.name || 'ตำแหน่งที่เลือก'}</b><br>${placeName}`).openPopup();
@@ -109,7 +279,6 @@
         }
     }
 
-    // กด Enter ใน Input เพื่อค้นหา
     ['lat', 'lon'].forEach(id => {
         document.getElementById(id).addEventListener("keydown", (e) => e.key === "Enter" && searchCoordinate());
     });
